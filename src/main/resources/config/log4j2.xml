@@ -103,7 +103,7 @@
     <!--定义AsyncLogger,只有定义了AsyncLogger并引入的appender,appender才会生效-->
     <loggers>
               <!-- 设置公共common包的日志 -->
-        <AsyncLogger name="com.mybank.management.transaction.common" additivity="false">
+        <AsyncLogger name="com.mybank.balance.transaction.common" additivity="false">
             <appender-ref ref="Console"/>
             <appender-ref ref="ErrorFile"/>
             <appender-ref ref="RootFile"/>
@@ -122,7 +122,7 @@
         </AsyncLogger>
 
         <!-- 设置项目业务日志 -->
-        <AsyncLogger name="com.mybank.management.transaction" additivity="false">
+        <AsyncLogger name="com.mybank.balance.transaction" additivity="false">
             <appender-ref ref="Console"/>
             <appender-ref ref="ErrorFile"/>
             <appender-ref ref="RootFile"/>

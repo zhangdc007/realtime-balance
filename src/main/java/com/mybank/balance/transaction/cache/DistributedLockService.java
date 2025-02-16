@@ -1,9 +1,8 @@
-package com.mybank.balance.transaction.common;
+package com.mybank.balance.transaction.cache;
 
 import org.springframework.stereotype.Component;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
-import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import java.time.Duration;
 import java.util.UUID;

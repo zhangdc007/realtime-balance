@@ -7,6 +7,6 @@ import reactor.core.publisher.Mono;
  * @time 2025/2/16 22:17
  */
 public interface AccountService {
-    Mono<Account> saveAccount(Account account);
+    Mono<Account> createAccount(Account account);
     Mono<CreateAccountResponse> getAccount(Long accountId);
 }

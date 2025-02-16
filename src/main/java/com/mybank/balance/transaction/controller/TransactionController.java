@@ -1,7 +1,6 @@
 package com.mybank.balance.transaction.controller;
 
 import com.mybank.balance.transaction.common.Response;
-import com.mybank.balance.transaction.dao.TransactionRepository;
 import com.mybank.balance.transaction.dto.GetTransactionResponse;
 import com.mybank.balance.transaction.dto.ProcessTransactionRequest;
 import com.mybank.balance.transaction.dto.ProcessTransactionResponse;
@@ -27,7 +26,7 @@ public class TransactionController {
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<Response<ProcessTransactionResponse>> processTransaction(@Valid @RequestBody ProcessTransactionRequest req) {
         return transactionService.processTransaction(req)
-                .map(ProcessTransactionResponse -> Response.success(ProcessTransactionResponse));;
+                .map(ProcessTransactionResponse -> Response.success(ProcessTransactionResponse));
     }
 
     @GetMapping(value = "/{bizId}", produces = MediaType.APPLICATION_JSON_VALUE)

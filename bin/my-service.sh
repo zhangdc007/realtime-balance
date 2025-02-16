@@ -8,7 +8,7 @@
 # ******************************************************
 
 #jar包名称
-MAIN_JAR=transaction-1.0-SNAPSHOT.jar
+MAIN_JAR=realtime-balance-1.0-SNAPSHOT.jar
 #环境如果没有传入就用pro，可以通过 export RUN_ENV=dev && export RUN_ENV=dev && sh my-service.sh run 设置
 RUN_ENV=${ENV:-dev}
 #服务类型，默认为API服务,响应优先

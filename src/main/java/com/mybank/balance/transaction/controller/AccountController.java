@@ -1,5 +1,4 @@
 package com.mybank.balance.transaction.controller;
-import com.mybank.balance.transaction.dao.AccountRepository;
 import com.mybank.balance.transaction.dto.CreateAccountRequest;
 import com.mybank.balance.transaction.dto.CreateAccountResponse;
 import com.mybank.balance.transaction.model.Account;
@@ -9,8 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
-import java.time.LocalDateTime;
-import java.math.BigDecimal;
+
 /**
  * @author zhangdaochuan
  * @time 2025/2/16 22:11
@@ -26,7 +24,7 @@ public class AccountController {
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<CreateAccountResponse> createAccount(@Valid @RequestBody CreateAccountRequest req) {
         Account account = req.to();
-        return accountService.saveAccount(account)
+        return accountService.createAccount(account)
                 .map(acc -> CreateAccountResponse.from(acc));
     }
 

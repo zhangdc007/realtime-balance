@@ -1,7 +1,7 @@
 package com.mybank.balance.transaction.service.impl;
 
 import com.mybank.balance.transaction.common.Constants;
-import com.mybank.balance.transaction.common.DistributedLockService;
+import com.mybank.balance.transaction.cache.DistributedLockService;
 import com.mybank.balance.transaction.common.TransactionStatus;
 import com.mybank.balance.transaction.dao.AccountRepository;
 import com.mybank.balance.transaction.dao.TransactionRepository;
@@ -40,6 +40,9 @@ public class TransactionServiceImpl implements TransactionService {
     @Autowired
     private TransactionalOperator transactionalOperator;
 
+    @Autowired
+    private AccountServiceImpl accountService;
+
     private static final Duration LOCK_EXPIRE = Duration.ofSeconds(10);
 
     @Override
@@ -60,12 +63,12 @@ public class TransactionServiceImpl implements TransactionService {
                                 .flatMap(response ->
                                         // 释放锁后返回结果
                                         lockService.releaseLock(lockKey, lockValue)
-                                                .thenReturn(response)
+                                                .thenReturn(ProcessTransactionResponse.from(response))
                                 )
                 );
     }
 
-    private Mono<ProcessTransactionResponse> processInternal(ProcessTransactionRequest request) {
+    private Mono<Transaction> processInternal(ProcessTransactionRequest request) {
         // 检查业务幂等：如果已存在则直接返回状态
         return transactionRepository.findByBizId(request.getBizId())
                 .flatMap(existing -> Mono.error(new BizException(ErrorCode.DUPLICATE_TRANSACTION)))
@@ -99,19 +102,23 @@ public class TransactionServiceImpl implements TransactionService {
                                         attemptOptimisticUpdate(txn, sourceAccount, request.getAmount(), 0)
                                 );
                             });
+                })
+                .doOnSuccess(response -> {
+                    //缓存失效
+                    accountService.deleteAccountCache(response.getSourceAccount());
+                    accountService.deleteAccountCache(response.getTransactionId());
                 });
     }
-
     /**
      * 尝试乐观锁更新 source 与 target 账户余额，重试最多 3 次
      */
-    private Mono<ProcessTransactionResponse> attemptOptimisticUpdate(Transaction txn, Account sourceAccount,
+    private Mono<Transaction> attemptOptimisticUpdate(Transaction txn, Account sourceAccount,
                                                                      BigDecimal amount, int retryCount) {
         if (retryCount > 3) {
             txn.setStatus(TransactionStatus.FAIL);
             txn.setUpdatedAt(LocalDateTime.now());
             return transactionRepository.save(txn)
-                    .then(Mono.just(ProcessTransactionResponse.from(txn)));
+                    .then(Mono.just(txn));
         }
         // 更新 source 账户：扣款（带乐观锁判断版本）
         Mono<Account> updateSource = accountRepository.findByAccountId(sourceAccount.getAccountId())
@@ -138,7 +145,7 @@ public class TransactionServiceImpl implements TransactionService {
                     txn.setStatus(TransactionStatus.SUCCESS);
                     txn.setUpdatedAt(LocalDateTime.now());
                     return transactionRepository.save(txn)
-                            .thenReturn(ProcessTransactionResponse.from(txn));
+                            .thenReturn(txn);
                 })
                 .onErrorResume(ex -> {
                     // 若出现乐观锁更新失败或其它并发问题，则重试

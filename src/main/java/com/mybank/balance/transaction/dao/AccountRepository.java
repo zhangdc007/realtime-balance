@@ -10,5 +10,4 @@ import reactor.core.publisher.Mono;
  */
 public interface AccountRepository extends ReactiveCrudRepository<Account, Long> {
     Mono<Account> findByAccountId(Long accountId);
-    Mono<Account> findByAccountIdAndCurrency(Long accountId, String currency);
 }
