@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--日志级别以及优先级排序: OFF > FATAL > ERROR > WARN > INFO > DEBUG > TRACE > ALL -->
+<!--Configuration后面的status,这个用于设置log4j2自身内部的信息输出,可以不设置,当设置成trace时,你会看到log4j2内部各种详细输出-->
+<!--monitorInterval：Log4j能够自动检测修改配置 文件和重新配置本身,设置间隔秒数-->
+<configuration status="ERROR" monitorInterval="30">
+
+    <Properties>
+        <!-- ==============================================公共配置============================================== -->
+        <!-- 日志默认存放的位置,可以设置为项目根路径下,也可指定绝对路径 -->
+        <property name="basePath">logs</property>
+
+        <!-- 控制台默认输出格式,"%-5level":日志级别,"%l":输出完整的错误位置,是小写的L,有行号显示,影响日志输出的性能，在控制台一般在debug环节，方便定位 -->
+        <property name="console_log_pattern">%d{yyyy-MM-dd HH:mm:ss.SSS} [%X{traceId}][%thread] %-5level %l %m%n</property>
+        <!-- 日志文件默认输出格式,不带行号输出(行号显示会影响日志输出性能);%C:大写,类名;%M:方法名;%m:错误信息;%n:换行 -->
+        <!-- 日志文件默认输出格式,另类带行号输出(对日志输出性能未知);%C:大写,类名;%M:方法名;%L:行号;%m:错误信息;%n:换行  %X{traceId} 自定义参数
+             详解 https://www.cnblogs.com/bugzeroman/p/12858115.html -->
+        <property name="log_pattern">%d{yyyy-MM-dd HH:mm:ss.SSS} [%X{traceId}][%thread] %-5level %logger{1.} %m%n</property>
+
+        <!-- 日志默认输出级别 -->
+        <property name="output_log_level">INFO</property>
+
+        <!-- 日志默认同一文件夹下可以存放的数量,不设置此属性则默认为7个 -->
+        <property name="max_file">7</property>
+        <!-- 日志默认同类型日志,多久生成一个新的日志文件,这个配置需要和filePattern结合使用;
+                如果设置为1,filePattern是%d{yyyy-MM-dd}到天的格式,则间隔一天生成一个文件
+                如果设置为12,filePattern是%d{yyyy-MM-dd-HH}到小时的格式,则间隔12小时生成一个文件 -->
+        <property name="timeInterval">1</property>
+        <!-- 日志默认同类型日志,是否对封存时间进行调制,若为true,则封存时间将以0点为边界进行调整,
+                如:现在是早上3am,interval是4,那么第一次滚动是在4am,接着是8am,12am...而不是7am -->
+        <property name="timeModulate">true</property>
+        <!-- ============================================控制台显示控制============================================ -->
+        <!-- 控制台显示的日志最低级别 -->
+        <property name="console_print_level">DEBUG</property>
+
+        <property name="sql_log_level" value="INFO" /> <!-- sql_log_level 的 debug 级别，只有DEBUG才会打印，生产环境可以关闭 -->
+
+    </Properties>
+
+    <!--定义appender -->
+    <appenders>
+        <!-- =======================================用来定义输出到控制台的配置======================================= -->
+        <Console name="Console" target="SYSTEM_OUT">
+            <!-- 设置控制台只输出level及以上级别的信息(onMatch),其他的直接拒绝(onMismatch)-->
+            <ThresholdFilter level="${console_print_level}" onMatch="ACCEPT" onMismatch="DENY"/>
+            <!-- 设置输出格式,不设置默认为:%m%n -->
+            <PatternLayout pattern="${log_pattern}"/>
+        </Console>
+
+        <!-- ======================================= root 基础日志，框架，系统的日志都打在这里 ======================================= -->
+        <RollingFile name="RootFile" fileName="${basePath}/root.log" filePattern="${basePath}/root-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${log_pattern}"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="500MB"/>
+            </Policies>
+            <!-- 全部清理规则都在这里 -->
+            <DefaultRolloverStrategy max="${max_file}">
+                <Delete basePath="${basePath}" maxDepth="1">
+                    <IfFileName glob="*.log.gz"/>
+                    <IfLastModified age="6d"/>
+                </Delete>
+                <Delete basePath="${basePath}" maxDepth="1">
+                    <IfFileName glob="gc*.log"/>
+                    <IfLastModified age="6d"/>
+                </Delete>
+                <Delete basePath="${basePath}" maxDepth="1">
+                    <IfFileName glob="dump*.hprof"/>
+                    <IfLastModified age="6d"/>
+                </Delete>
+                <Delete basePath="${basePath}" maxDepth="1">
+                    <IfFileName glob="hs_err*.log"/>
+                    <IfLastModified age="6d"/>
+                </Delete>
+            </DefaultRolloverStrategy>
+        </RollingFile>
+
+        <!-- ======================================= ERROR日志文件 ======================================= -->
+        <RollingFile name="ErrorFile" fileName="${basePath}/error.log" filePattern="${basePath}/error-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${log_pattern}"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="500MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="${max_file}" />
+            <Filters>
+                <ThresholdFilter level="FATAL" onMatch="DENY" onMismatch="NEUTRAL"/>
+                <ThresholdFilter level="ERROR" onMatch="ACCEPT" onMismatch="DENY"/>
+            </Filters>
+        </RollingFile>
+
+        <!-- ======================================= api 摘要日志文件 ======================================= -->
+        <RollingFile name="APIFile" fileName="${basePath}/api.log" filePattern="${basePath}/api-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${log_pattern}"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="500MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="${max_file}" />
+        </RollingFile>
+
+    </appenders>
+
+    <!--定义AsyncLogger,只有定义了AsyncLogger并引入的appender,appender才会生效-->
+    <loggers>
+              <!-- 设置公共common包的日志 -->
+        <AsyncLogger name="com.mybank.management.transaction.common" additivity="false">
+            <appender-ref ref="Console"/>
+            <appender-ref ref="ErrorFile"/>
+            <appender-ref ref="RootFile"/>
+        </AsyncLogger>
+
+        <!-- api摘要日志 -->
+        <AsyncLogger name="apiLogger" additivity="false">
+            <appender-ref ref="APIFile" />
+            <appender-ref ref="Console" />
+        </AsyncLogger>
+
+        <!-- error 日志 -->
+        <AsyncLogger name="errorLogger" additivity="false">
+            <appender-ref ref="ErrorFile" />
+            <appender-ref ref="Console" />
+        </AsyncLogger>
+
+        <!-- 设置项目业务日志 -->
+        <AsyncLogger name="com.mybank.management.transaction" additivity="false">
+            <appender-ref ref="Console"/>
+            <appender-ref ref="ErrorFile"/>
+            <appender-ref ref="RootFile"/>
+        </AsyncLogger>
+        <!--建立一个默认的root的AsyncLogger-->
+        <AsyncRoot level="${output_log_level}">
+            <appender-ref ref="Console"/>
+            <appender-ref ref="RootFile"/>
+            <appender-ref ref="ErrorFile"/>
+        </AsyncRoot>
+
+    </loggers>
+
+</configuration>
