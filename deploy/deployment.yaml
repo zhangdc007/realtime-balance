@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: realtime-balance-deployment
+  labels:
+    app: realtime-balance
+spec:
+  replicas: 3  # 初始副本数
+  selector:
+    matchLabels:
+      app: realtime-balance
+  template:
+    metadata:
+      labels:
+        app: realtime-balance
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - realtime-balance
+                topologyKey: topology.kubernetes.io/zone  # 多可用区部署，根据可用区进行反亲和性调度
+      containers:
+        - name: realtime-balance-container
+          image: mybank/realtime-balance:1.0  # 使用你打包的 Docker 镜像，如果是私有仓库，需要配置认证
+          ports:
+            - containerPort: 9001
+          command: ["sh", "/opt/app/realtime-balance/my-service.sh", "run"]
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2000m"
+              memory: "4Gi"

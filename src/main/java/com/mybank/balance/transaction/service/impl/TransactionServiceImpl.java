@@ -299,7 +299,7 @@ public class TransactionServiceImpl implements TransactionService {
         // 用于异步重试任务处理
         return transactionRepository.findByBizId(bizId)
                 .flatMap(txn -> {
-                    // 如果重试次数超过6，则置为 FAIL
+                    // 如果重试次数超过max，则置为 FAIL
                     if (txn.getRetry() != null && txn.getRetry() > Constants.MAX_TX_RETRY) {
                         txn.setStatus(TransactionStatus.FAILED);
                         txn.setError("retry times exceed 6,need manual process");
