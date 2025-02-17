@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.mybank.balance.transaction.exception.ErrorCode;
 
 /**
+ * 返回结果包装
  * @author zhangdaochuan
  * @time 2025/2/16 21:50
  */

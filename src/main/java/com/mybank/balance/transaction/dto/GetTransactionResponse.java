@@ -2,7 +2,10 @@ package com.mybank.balance.transaction.dto;
 
 import com.mybank.balance.transaction.common.TransactionStatus;
 import com.mybank.balance.transaction.model.Transaction;
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 /**
@@ -10,6 +13,8 @@ import java.time.LocalDateTime;
  * @time 2025/2/16 21:36
  */
 @Data
+@AllArgsConstructor
+@NoArgsConstructor
 public class GetTransactionResponse {
     private String bizId;
     private String error;

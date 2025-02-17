@@ -21,7 +21,6 @@ public class AccountController {
     @Autowired
     private AccountService accountService;
 
-
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<Response<CreateAccountResponse>> createAccount(@Valid @RequestBody CreateAccountRequest req) {
         Account account = req.to();

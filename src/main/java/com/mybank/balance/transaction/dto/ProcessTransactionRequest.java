@@ -5,7 +5,9 @@ import com.mybank.balance.transaction.common.Currency;
 import com.mybank.balance.transaction.model.Transaction;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -15,6 +17,8 @@ import java.time.LocalDateTime;
  * @time 2025/2/16 21:34
  */
 @Data
+@AllArgsConstructor
+@NoArgsConstructor
 public class ProcessTransactionRequest {
     @NotBlank
     private String bizId;

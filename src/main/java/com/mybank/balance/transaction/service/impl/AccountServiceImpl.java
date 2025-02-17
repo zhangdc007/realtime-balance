@@ -14,6 +14,7 @@ import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 /**
+ * 账户服务实现
  * @author zhangdaochuan
  * @time 2025/2/16 22:17
  */
@@ -22,10 +23,15 @@ public class AccountServiceImpl implements AccountService {
 
     @Autowired
     private AccountRepository accountRepository;
-
+    /**
+     * redis client
+     */
     @Autowired
     private ReactiveStringRedisTemplate redisTemplate;
 
+    /**
+     * 序列化工具
+     */
     @Autowired
     private ObjectMapper objectMapper;
 

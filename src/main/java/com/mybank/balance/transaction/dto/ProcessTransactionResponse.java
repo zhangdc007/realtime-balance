@@ -2,13 +2,18 @@ package com.mybank.balance.transaction.dto;
 
 import com.mybank.balance.transaction.common.TransactionStatus;
 import com.mybank.balance.transaction.model.Transaction;
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.time.LocalDateTime;
 /**
  * @author zhangdaochuan
  * @time 2025/2/16 21:35
  */
 @Data
+@AllArgsConstructor
+@NoArgsConstructor
 public class ProcessTransactionResponse {
     private String bizId;
     private TransactionStatus status;
@@ -22,5 +27,4 @@ public class ProcessTransactionResponse {
         resp.setCreated(trx.getCreatedAt());
         return resp;
     }
-
 }

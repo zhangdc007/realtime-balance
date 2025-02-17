@@ -4,7 +4,9 @@ import com.mybank.balance.transaction.common.Currency;
 import com.mybank.balance.transaction.model.Account;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -14,6 +16,8 @@ import java.time.LocalDateTime;
  * @time 2025/2/16 21:31
  */
 @Data
+@AllArgsConstructor
+@NoArgsConstructor
 public class CreateAccountRequest {
     @NotNull
     private Currency currency;

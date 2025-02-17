@@ -8,7 +8,6 @@ import com.mybank.balance.transaction.cache.DistributedLockService;
 import com.mybank.balance.transaction.common.TransactionStatus;
 import com.mybank.balance.transaction.dao.AccountRepository;
 import com.mybank.balance.transaction.dao.TransactionRepository;
-import com.mybank.balance.transaction.dto.CreateAccountResponse;
 import com.mybank.balance.transaction.dto.ProcessTransactionRequest;
 import com.mybank.balance.transaction.dto.ProcessTransactionResponse;
 import com.mybank.balance.transaction.dto.GetTransactionResponse;
@@ -31,7 +30,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 
+ *  交易服务接口实现
  * 
  * @time 2025/2/16 21:40
  * @author zhangdaochuan
@@ -44,14 +43,21 @@ public class TransactionServiceImpl implements TransactionService {
     private TransactionRepository transactionRepository;
     @Autowired
     private AccountRepository accountRepository;
+    /**
+     * 分布式锁
+     */
     @Autowired
     private DistributedLockService lockService;
     @Autowired
     private TransactionalOperator transactionalOperator;
-
+    /**
+     * redis client
+     */
     @Autowired
     private ReactiveStringRedisTemplate redisTemplate;
-
+    /**
+     * 序列化工具
+     */
     @Autowired
     private ObjectMapper objectMapper;
 

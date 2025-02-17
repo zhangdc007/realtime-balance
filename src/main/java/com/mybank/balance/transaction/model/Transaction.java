@@ -28,7 +28,7 @@ public class Transaction {
     private Long sourceAccount;
     private Long targetAccount;
     private BigDecimal amount;
-    /// PENDING, PROCESSING, SUCCESS, RETRY, FAIL
+    /// PENDING, PROCESSING, SUCCESS, RETRY, FAILED
     private TransactionStatus status;
     private String error;
     private Integer retry;
@@ -36,7 +36,7 @@ public class Transaction {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    //不持久化的字段
+    //不持久化的字段,用来判断是否需要处理事务
     @Transient
     private boolean needProcess = true;
 }

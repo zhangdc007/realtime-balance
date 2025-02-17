@@ -7,4 +7,4 @@ ADD target/realtime-balance-1.0-SNAPSHOT.tar.gz /opt/app/
 WORKDIR /opt/app/
 EXPOSE 9001
 # 设置默认启动脚本
-CMD ["sh", "/opt/app/transaction/my-service.sh", "run"]
+CMD ["sh", "/opt/app/realtime-balance/my-service.sh", "run"]
