@@ -14,5 +14,8 @@ public class Constants {
     public static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd";
     /** 默认时间格式 */
     public static final String DEFAULT_TIME_FORMAT = "HH:mm:ss";
+    //一个事务最大重试次数
     public static final int MAX_TX_RETRY = 6;
+    //单个循序最大重试次数
+    public static final int SINGLE_MAX_TX_RETRY = 3;
 }

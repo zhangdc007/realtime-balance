@@ -13,6 +13,8 @@ import com.mybank.balance.transaction.exception.ErrorCode;
 import com.mybank.balance.transaction.model.Account;
 import com.mybank.balance.transaction.model.Transaction;
 import com.mybank.balance.transaction.service.TransactionService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -33,6 +35,7 @@ import java.util.List;
 @Service
 public class TransactionServiceImpl implements TransactionService {
 
+    Logger logger = LoggerFactory.getLogger(TransactionServiceImpl.class);
     @Autowired
     private TransactionRepository transactionRepository;
     @Autowired
@@ -179,9 +182,9 @@ public class TransactionServiceImpl implements TransactionService {
      */
     private Mono<Transaction> attemptOptimisticUpdate(Transaction txn, Account sourceAccount,
                                                                      BigDecimal amount, int retryCount) {
-        if (retryCount > 3) {
-            txn.setStatus(TransactionStatus.FAILED);
-            txn.setError("Retry count:" + retryCount +" exceeded 3");
+        //单个重试循环最大3次，不进行重试，等待异步任务重试
+        if (retryCount > Constants.SINGLE_MAX_TX_RETRY) {
+            txn.setStatus(TransactionStatus.RETRY);
             txn.setUpdatedAt(LocalDateTime.now());
             return transactionRepository.save(txn)
                     .then(Mono.just(txn));
@@ -214,7 +217,8 @@ public class TransactionServiceImpl implements TransactionService {
                             .thenReturn(txn);
                 })
                 .onErrorResume(ex -> {
-                    // 若出现乐观锁更新失败或其它并发问题，则重试
+                    logger.warn("update account by verson optimisticLock fail:",ex.getMessage());
+                    // 若出现乐观锁更新失败或其它并发问题，则重试，保存重试次数，并递增延迟
                     txn.setRetry(txn.getRetry() + 1);
                     return Mono.delay(Duration.ofMillis(50L * (retryCount + 1)))
                             .then(attemptOptimisticUpdate(txn, sourceAccount, amount, retryCount + 1));
@@ -232,6 +236,7 @@ public class TransactionServiceImpl implements TransactionService {
                         txn.setError("retry times exceed 6,need manual process");
                         txn.setUpdatedAt(LocalDateTime.now());
                         //TODO send email/ sms  to admin
+                        logger.error("Transaction:"+ txn.getTransactionId() +" retry times exceed 6,need manual process");
                         return transactionRepository.save(txn).then();
                     }
                     // 否则，重复调用 processTransaction 内部逻辑
