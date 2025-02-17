@@ -68,7 +68,7 @@ public class TransactionServiceImpl implements TransactionService {
                 .switchIfEmpty(Mono.error(new BizException(ErrorCode.LOCK_ACQUIRE_FAILED)))
                 .flatMap(lockValue ->
                         // 调用内部处理方法
-                        processInternal(request)
+                        processInternal(request,false)
                                 .flatMap(response ->
                                         // 释放锁后返回结果
                                         lockService.releaseLock(lockKey, lockValue)
@@ -77,19 +77,45 @@ public class TransactionServiceImpl implements TransactionService {
                 );
     }
 
-    private Mono<Transaction> processInternal(ProcessTransactionRequest request) {
-        // 检查业务幂等：如果已存在则直接返回状态
-        return transactionRepository.findByBizId(request.getBizId())
-                .flatMap(existing -> Mono.error(new BizException(ErrorCode.DUPLICATE_TRANSACTION)))
-                .switchIfEmpty(Mono.defer(() -> {
-                    // 新增交易记录，初始状态为 PENDING
-                    Transaction txn = request.to();
-                    txn.setStatus(TransactionStatus.PENDING);
-                    return transactionRepository.save(txn);
-                }))
-                .flatMap(txnObj -> {
+    /**
+     * 核心交易处理逻辑
+     * @param request
+     * @param isRetry 是否重试任务
+     * @return
+     */
+    private Mono<Transaction> processInternal(ProcessTransactionRequest request,boolean isRetry) {
+        Mono<Transaction> txnMono;
+        long startTime = System.currentTimeMillis();
+        if (isRetry) {
+            logger.info("begin Retrying transaction:"+request.getBizId());
+            // 如果是重试任务，跳过判断是否存在和新增交易记录逻辑
+            txnMono = transactionRepository.findByBizId(request.getBizId())
+                    .switchIfEmpty(Mono.error(new BizException(ErrorCode.TRANSACTION_NOT_FOUND)));
+        } else {
+            //新的交易任务： 检查业务幂等：如果已存在则直接返回状态
+            txnMono = transactionRepository.findByBizId(request.getBizId())
+                    .flatMap(existing -> {
+                        //这里不需要后续处理
+                        existing.setNeedProcess(false);
+                        // 如果交易已存在，直接返回交易记录对应的响应
+                        return Mono.just(existing);
+                    })
+                    .switchIfEmpty(Mono.defer(() -> {
+                        // 新增交易记录，初始状态为 PENDING
+                        Transaction txn = request.to();
+                        txn.setStatus(TransactionStatus.PENDING);
+                        return transactionRepository.save(txn);
+                    }));
+        }
+
+        return txnMono.flatMap(txnObj -> {
                     //transactionRepository.save(txn)的返回值是Mono<Object>实际是Mono<Transaction>
                     Transaction txn = (Transaction)txnObj;
+                    //如果是已经存在不需要处理了
+                    if(!txn.isNeedProcess())
+                    {
+                        return Mono.just(txn);
+                    }
                     // 校验 source 和 target 不能一致
                     if (request.getSourceAccount().equals(Long.parseLong(txn.getTargetAccount().toString()))) {
                         txn.setStatus(TransactionStatus.FAILED);
@@ -173,8 +199,8 @@ public class TransactionServiceImpl implements TransactionService {
                             });
                 })
                 .doOnSuccess(response -> {
-                    //缓存失效
-                    redisTemplate.delete(response.getSourceAccount().toString(),response.getTransactionId().toString());
+                    long endTime = System.currentTimeMillis();
+                    logger.info((response.isNeedProcess()?"process":"existing")+" Transaction:"+response.getBizId()+" stutas:"+response.getStatus() + " cost time:"+(endTime-startTime)+"ms");
                 });
     }
     /**
@@ -196,6 +222,7 @@ public class TransactionServiceImpl implements TransactionService {
                         return Mono.error(new BizException(ErrorCode.INSUFFICIENT_FUNDS));
                     }
                     acc.setBalance(acc.getBalance().subtract(amount));
+                    acc.setUpdatedAt(LocalDateTime.now());
                     // 乐观锁更新，由 R2DBC 的 @Version 自动判断
                     return accountRepository.save(acc);
                 });
@@ -206,6 +233,7 @@ public class TransactionServiceImpl implements TransactionService {
                         return Mono.error(new BizException(ErrorCode.CURRENCY_MISMATCH));
                     }
                     acc.setBalance(acc.getBalance().add(amount));
+                    acc.setUpdatedAt(LocalDateTime.now());
                     return accountRepository.save(acc);
                 });
         // 执行更新并更新交易状态
@@ -213,6 +241,8 @@ public class TransactionServiceImpl implements TransactionService {
                 .flatMap(updated -> {
                     txn.setStatus(TransactionStatus.SUCCESS);
                     txn.setUpdatedAt(LocalDateTime.now());
+                    // 执行成功，账户余额变化，缓存失效
+                    redisTemplate.delete(txn.getSourceAccount().toString(), txn.getTransactionId().toString());
                     return transactionRepository.save(txn)
                             .thenReturn(txn);
                 })
@@ -246,7 +276,15 @@ public class TransactionServiceImpl implements TransactionService {
                     req.setTargetAccount(txn.getTargetAccount());
                     req.setCurrency(txn.getCurrency());
                     req.setAmount(txn.getAmount());
-                    return processInternal(req).then();
+                    // 使用 bizId 作为锁 key
+                    String lockKey = "lock:txn:" + req.getBizId();
+                    return lockService.acquireLock(lockKey, LOCK_EXPIRE)
+                            .switchIfEmpty(Mono.empty()) // 如果没有获取到锁，直接跳过处理
+                            .flatMap(lockValue ->
+                                    processInternal(req, true)
+                                            .then(lockService.releaseLock(lockKey, lockValue))
+                                            .then()
+                            );
                 });
     }
 }

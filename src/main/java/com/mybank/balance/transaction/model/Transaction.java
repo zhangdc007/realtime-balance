@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.relational.core.mapping.Table;
 
 import java.math.BigDecimal;
@@ -34,4 +35,8 @@ public class Transaction {
     private Currency currency;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    //不持久化的字段
+    @Transient
+    private boolean needProcess = true;
 }
