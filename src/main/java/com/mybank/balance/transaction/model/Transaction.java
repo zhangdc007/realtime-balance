@@ -2,7 +2,9 @@ package com.mybank.balance.transaction.model;
 
 import com.mybank.balance.transaction.common.Currency;
 import com.mybank.balance.transaction.common.TransactionStatus;
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;
 
@@ -15,6 +17,8 @@ import java.time.LocalDateTime;
  * @author zhangdaochuan
  */
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
 @Table("transactions")
 public class Transaction {
     @Id

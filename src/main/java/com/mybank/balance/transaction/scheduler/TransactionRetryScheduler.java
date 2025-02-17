@@ -41,14 +41,14 @@ public class TransactionRetryScheduler {
     public void retryTransactions() {
         LocalDateTime threshold = LocalDateTime.now().minusMinutes(5);
         // 查询状态为 RETRY、PENDING、PROCESSING 且 updatedAt 早于 threshold 的记录
-        Flux<Transaction> transactionsToRetry = transactionRepository.findRetryTransactionsOrStatusAndUpdatedBrfore(
-                Arrays.asList(TransactionStatus.PENDING, TransactionStatus.PROCESSING), threshold
-        );
-        transactionsToRetry.flatMap(txn ->
+
+        transactionRepository.findAllByStatusOrStatusInAndUpdatedAtBefore(TransactionStatus.RETRY.name(),
+                Arrays.asList(TransactionStatus.PENDING.name(), TransactionStatus.PROCESSING.name()), threshold
+        ).flatMap(txn ->
                 transactionService.reprocessTransaction(txn.getBizId())
                         .onErrorResume(ex -> {
                             // 可记录日志，通知告警
-                            logger.error("retryTransactions process failed", ex);
+                            logger.error("retryTransactions:"+txn.getBizId()+" process failed", ex);
                             return Flux.empty().then();
                         })
         ).subscribe();

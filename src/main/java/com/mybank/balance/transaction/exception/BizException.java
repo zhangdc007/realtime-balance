@@ -13,9 +13,21 @@ public class BizException extends RuntimeException {
         this.errorCode = errorCode;
     }
 
+    // 新增构造函数，支持包装 Throwable 类型的异常
+    public BizException(Throwable cause) {
+        super(cause);
+        // 这里可以根据具体情况设置默认的错误码
+        this.errorCode = -1;
+    }
+    // 新增构造函数，支持包装 Throwable 类型的异常
+    public BizException(Throwable cause,String message) {
+        super(message,cause);
+        // 这里可以根据具体情况设置默认的错误码
+        this.errorCode = -1;
+    }
 
     public BizException( ErrorCode error,String message)  {
-        super(error.getMessage() + message);
+        super(error.getMessage() + ":" + message);
         this.errorCode = error.getCode();
     }
 

@@ -19,4 +19,12 @@ public enum AccountType {
     public int getValue() {
         return value;
     }
+    public static AccountType fromValue(int value) {
+        for (AccountType type : AccountType.values()) {
+            if (type.getValue() == value) {
+                return type;
+            }
+        }
+        throw new IllegalArgumentException("No matching AccountType for value: " + value);
+    }
 }

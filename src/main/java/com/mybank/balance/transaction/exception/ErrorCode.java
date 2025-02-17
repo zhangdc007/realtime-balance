@@ -15,6 +15,8 @@ public enum ErrorCode {
     LOCK_ACQUIRE_FAILED(1008, "distribute lock acquire failed"),
     CURRENCY_MISMATCH(1009, "currency mismatch"),
     INSUFFICIENT_FUNDS(1010, "Insufficient funds"),
+    ACCOUNT_TYPE_MISMATCH(1011, "Account type mismatch"),
+    SOURCE_TARGET_ACCOUNT_SAME(1012, "Source and target accounts are the same"),
     GENERAL_ERROR(9999, "An unexpected error occurred");
 
     private final int code;

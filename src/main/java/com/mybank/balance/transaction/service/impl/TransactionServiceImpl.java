@@ -14,6 +14,7 @@ import com.mybank.balance.transaction.model.Account;
 import com.mybank.balance.transaction.model.Transaction;
 import com.mybank.balance.transaction.service.TransactionService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Mono;
@@ -21,6 +22,7 @@ import reactor.core.publisher.Mono;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 
@@ -41,6 +43,9 @@ public class TransactionServiceImpl implements TransactionService {
     private TransactionalOperator transactionalOperator;
 
     @Autowired
+    private ReactiveStringRedisTemplate redisTemplate;
+
+    @Autowired
     private AccountServiceImpl accountService;
 
     private static final Duration LOCK_EXPIRE = Duration.ofSeconds(10);
@@ -48,7 +53,8 @@ public class TransactionServiceImpl implements TransactionService {
     @Override
     public Mono<GetTransactionResponse> getTransaction(String bizId) {
         return transactionRepository.findByBizId(bizId)
-                .map(txn -> GetTransactionResponse.from(txn));
+                .map(txn -> GetTransactionResponse.from(txn))
+                .switchIfEmpty(Mono.error(new BizException(ErrorCode.TRANSACTION_NOT_FOUND)));
     }
 
     @Override
@@ -81,21 +87,81 @@ public class TransactionServiceImpl implements TransactionService {
                 .flatMap(txnObj -> {
                     //transactionRepository.save(txn)的返回值是Mono<Object>实际是Mono<Transaction>
                     Transaction txn = (Transaction)txnObj;
-                    // 查询 source 账户
-                    return accountRepository.findByAccountId(request.getSourceAccount())
-                            .switchIfEmpty(Mono.error(new BizException(ErrorCode.ACCOUNT_NOT_FOUND, "source account not found")))
-                            .flatMap(sourceAccount -> {
-                                // 校验币种
-                                if (!sourceAccount.getCurrency().equals(request.getCurrency())) {
-                                    return Mono.error(new BizException(ErrorCode.CURRENCY_MISMATCH));
+                    // 校验 source 和 target 不能一致
+                    if (request.getSourceAccount().equals(Long.parseLong(txn.getTargetAccount().toString()))) {
+                        txn.setStatus(TransactionStatus.FAILED);
+                        txn.setError("Source and target accounts cannot be the same");
+                        txn.setUpdatedAt(LocalDateTime.now());
+                        return transactionRepository.save(txn)
+                                .then(Mono.error(new BizException(ErrorCode.SOURCE_TARGET_ACCOUNT_SAME)));
+                    }
+                    // 一次性查询 source 和 target 账户
+                    List<Long> accountIds = List.of(request.getSourceAccount(), Long.parseLong(txn.getTargetAccount().toString()));
+                    // 查询 source ,target账户是否符合业务要求：
+                    /**
+                     *   source 和 target 不能一致
+                     *   查询 source 账户是否存在，且账户余额是否>= amount,如果不存在或者不足，返回异常原因，记录该transactions记录为FAIL，并写入失败原因
+                     *   查询 target 账户是否存在，且currency和AccountType是否一致，如果不一致，返回异常原因，记录该transactions记录为FAIL，并写入失败原因
+                     *   检查 Transaction 请求的 currency和source账户是否一致
+                     */
+                    return accountRepository.findAllByAccountIdIn(accountIds)
+                            .collectList()
+                            .flatMap(accounts -> {
+                                Account sourceAccount = null;
+                                Account targetAccount = null;
+                                for (Account account : accounts) {
+                                    if (account.getAccountId().equals(request.getSourceAccount())) {
+                                        sourceAccount = account;
+                                    } else if (account.getAccountId().equals(request.getTargetAccount())) {
+                                        targetAccount = account;
+                                    }
                                 }
-                                // 检查余额是否充足
+                                // 校验 source 账户
+                                if (sourceAccount == null) {
+                                    txn.setStatus(TransactionStatus.FAILED);
+                                    txn.setError("Source account not found");
+                                    txn.setUpdatedAt(LocalDateTime.now());
+                                    return transactionRepository.save(txn)
+                                            .then(Mono.error(new BizException(ErrorCode.ACCOUNT_NOT_FOUND, "source account "+request.getSourceAccount()+" not found")));
+                                }
                                 if (sourceAccount.getBalance().compareTo(request.getAmount()) < 0) {
-                                    txn.setStatus(TransactionStatus.FAIL);
-                                    txn.setError("Insufficient funds ，less then:"+request.getCurrency() + " "+request.getAmount());
+                                    txn.setStatus(TransactionStatus.FAILED);
+                                    txn.setError("Insufficient funds ，less then:" + request.getCurrency() + " " + request.getAmount());
                                     txn.setUpdatedAt(LocalDateTime.now());
                                     return transactionRepository.save(txn)
                                             .then(Mono.error(new BizException(ErrorCode.INSUFFICIENT_FUNDS, "balance is not enough")));
+                                }
+                                // 校验 target 账户
+                                if (targetAccount == null) {
+                                    txn.setStatus(TransactionStatus.FAILED);
+                                    txn.setError("Target account not found");
+                                    txn.setUpdatedAt(LocalDateTime.now());
+                                    return transactionRepository.save(txn)
+                                            .then(Mono.error(new BizException(ErrorCode.ACCOUNT_NOT_FOUND, "target account "+request.getTargetAccount()+" not found")));
+                                }
+                                //校验货币是否一致
+                                if (!targetAccount.getCurrency().equals(sourceAccount.getCurrency())) {
+                                    txn.setStatus(TransactionStatus.FAILED);
+                                    txn.setError("Target account currency mismatch");
+                                    txn.setUpdatedAt(LocalDateTime.now());
+                                    return transactionRepository.save(txn)
+                                            .then(Mono.error(new BizException(ErrorCode.CURRENCY_MISMATCH, "target and source account currency mismatch")));
+                                }
+                                // 检查 Transaction 请求的 currency 和 source 账户是否一致
+                                if (!sourceAccount.getCurrency().equals(request.getCurrency())) {
+                                    txn.setStatus(TransactionStatus.FAILED);
+                                    txn.setError("Transaction currency:"+request.getCurrency()+" does not match source account currency:"+sourceAccount.getCurrency());
+                                    txn.setUpdatedAt(LocalDateTime.now());
+                                    return transactionRepository.save(txn)
+                                            .then(Mono.error(new BizException(ErrorCode.CURRENCY_MISMATCH, "transaction currency mismatch with source account")));
+                                }
+                                //校验账户类型是否一致
+                                if (!targetAccount.getAccountType().equals(sourceAccount.getAccountType())) {
+                                    txn.setStatus(TransactionStatus.FAILED);
+                                    txn.setError("Target account type mismatch");
+                                    txn.setUpdatedAt(LocalDateTime.now());
+                                    return transactionRepository.save(txn)
+                                            .then(Mono.error(new BizException(ErrorCode.ACCOUNT_TYPE_MISMATCH, "target and source account type mismatch")));
                                 }
                                 // 进入乐观锁更新阶段（重试机制，最多重试 3 次）
                                 return transactionalOperator.transactional(
@@ -105,8 +171,7 @@ public class TransactionServiceImpl implements TransactionService {
                 })
                 .doOnSuccess(response -> {
                     //缓存失效
-                    accountService.deleteAccountCache(response.getSourceAccount());
-                    accountService.deleteAccountCache(response.getTransactionId());
+                    redisTemplate.delete(response.getSourceAccount().toString(),response.getTransactionId().toString());
                 });
     }
     /**
@@ -115,7 +180,8 @@ public class TransactionServiceImpl implements TransactionService {
     private Mono<Transaction> attemptOptimisticUpdate(Transaction txn, Account sourceAccount,
                                                                      BigDecimal amount, int retryCount) {
         if (retryCount > 3) {
-            txn.setStatus(TransactionStatus.FAIL);
+            txn.setStatus(TransactionStatus.FAILED);
+            txn.setError("Retry count:" + retryCount +" exceeded 3");
             txn.setUpdatedAt(LocalDateTime.now());
             return transactionRepository.save(txn)
                     .then(Mono.just(txn));
@@ -131,7 +197,7 @@ public class TransactionServiceImpl implements TransactionService {
                     return accountRepository.save(acc);
                 });
         // 更新 target 账户：加款
-        Mono<Account> updateTarget = accountRepository.findByAccountId(Long.parseLong(txn.getTargetAccount().toString()))
+        Mono<Account> updateTarget = accountRepository.findByAccountId(txn.getTargetAccount())
                 .flatMap(acc -> {
                     if (!acc.getCurrency().equals(txn.getCurrency())) {
                         return Mono.error(new BizException(ErrorCode.CURRENCY_MISMATCH));
@@ -162,7 +228,7 @@ public class TransactionServiceImpl implements TransactionService {
                 .flatMap(txn -> {
                     // 如果重试次数超过6，则置为 FAIL
                     if (txn.getRetry() != null && txn.getRetry() > Constants.MAX_TX_RETRY) {
-                        txn.setStatus(TransactionStatus.FAIL);
+                        txn.setStatus(TransactionStatus.FAILED);
                         txn.setError("retry times exceed 6,need manual process");
                         txn.setUpdatedAt(LocalDateTime.now());
                         //TODO send email/ sms  to admin

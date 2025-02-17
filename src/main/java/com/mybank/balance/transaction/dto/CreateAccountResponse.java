@@ -25,7 +25,7 @@ public class CreateAccountResponse {
         resp.setAccountId(acc.getAccountId());
         resp.setBalance(acc.getBalance());
         resp.setCurrency(acc.getCurrency());
-        resp.setAccountType(acc.getAccountType());
+        resp.setAccountType(AccountType.fromValue(acc.getAccountType()));
         resp.setCreated(acc.getCreatedAt());
         return resp;
     }

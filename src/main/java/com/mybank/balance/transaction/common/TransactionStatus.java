@@ -6,7 +6,7 @@ package com.mybank.balance.transaction.common;
  */
 public enum TransactionStatus {
     SUCCESS,
-    FAIL,
+    FAILED,
     RETRY,
     PROCESSING,
     PENDING;

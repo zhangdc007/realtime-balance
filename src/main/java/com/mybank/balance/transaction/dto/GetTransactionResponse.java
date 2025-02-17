@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 @Data
 public class GetTransactionResponse {
     private String bizId;
+    private String error;
     private TransactionStatus status;
     private BigDecimal amount;
     private Long sourceAccount;
@@ -23,9 +24,11 @@ public class GetTransactionResponse {
         GetTransactionResponse resp = new GetTransactionResponse();
         resp.setBizId(trx.getBizId());
         resp.setAmount(trx.getAmount());
+        resp.setStatus(trx.getStatus());
         resp.setSourceAccount(trx.getSourceAccount());
         resp.setTargetAccount(trx.getTargetAccount());
         resp.setCreated(trx.getCreatedAt());
+        resp.setError(trx.getError());
         resp.setUpdated(trx.getUpdatedAt());
         return resp;
     }

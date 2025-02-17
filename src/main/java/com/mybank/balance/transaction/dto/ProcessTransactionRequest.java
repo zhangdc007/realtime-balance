@@ -1,4 +1,5 @@
 package com.mybank.balance.transaction.dto;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.annotation.EnumNaming;
 import com.mybank.balance.transaction.common.Currency;
 import com.mybank.balance.transaction.model.Transaction;

@@ -27,7 +27,7 @@ public class CreateAccountRequest {
     public Account to() {
         Account account = new Account();
         account.setCurrency(this.currency);
-        account.setAccountType(this.type);
+        account.setAccountType(this.type.getValue());
         account.setBalance(this.balance);
         account.setCreatedAt(LocalDateTime.now());
         return account;

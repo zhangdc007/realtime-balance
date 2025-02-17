@@ -8,8 +8,8 @@
 		<version>3.4.1</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.mybank.balance</groupId>
-	<artifactId>transaction</artifactId>
+	<groupId>com.mybank</groupId>
+	<artifactId>realtime-balance</artifactId>
 	<version>1.0-SNAPSHOT</version>
 	<name>realtime-balance</name>
 	<description>a bank transaction management system</description>
@@ -30,7 +30,13 @@
 				</exclusion>
 			</exclusions>
 		</dependency>
-		<!-- undertow  performance better than tomcat-->
+		<dependency>
+			<groupId>io.netty</groupId>
+			<artifactId>netty-resolver-dns-native-macos</artifactId>
+			<!--<classifier>osx-aarch_64</classifier>-->
+			<classifier>${os.detected.classifier}</classifier>
+			<version>4.1.118.Final</version>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-webflux</artifactId>
@@ -40,6 +46,13 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-data-r2dbc</artifactId>
 		</dependency>
+
+		<dependency>
+			<groupId>com.fasterxml.jackson.datatype</groupId>
+			<artifactId>jackson-datatype-jsr310</artifactId>
+			<version>2.15.3</version> <!-- 根据实际情况选择合适的版本 -->
+		</dependency>
+
 		<!-- MySQL R2DBC driver -->
 		<!--r2dbc mysql 库-->
 		<dependency>
@@ -154,6 +167,13 @@
 	</dependencies>
 
 	<build>
+		<extensions>
+			<extension>
+				<groupId>kr.motd.maven</groupId>
+				<artifactId>os-maven-plugin</artifactId>
+				<version>1.7.1</version>
+			</extension>
+		</extensions>
 		<plugins>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
