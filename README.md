@@ -7,10 +7,14 @@ a banking transaction system, providing CRUD interfaces with basic validation an
 ```
 realtime-balance/
 ├── bin/
-├── pressTest/     stress test jmeter script and report
+├── deploy/                             k8s deploy.yaml
 ├── doc/
-│   ├── API.md     API doc
-│   ├── ddl.sql    database sql
+│   ├── API.md                           API doc
+│   ├── ddl.sql                          database sql
+│   ├── jmeter.xml                       jmeter script
+│   ├── stressTest.pdf                   stressTest report
+│   ├── real-time-balance.apifox.json    apifoxfile
+│   ├── designDoc.md                     designDoc
 ├── src/
 │   ├── main/
 │   │   ├── java/{com.mybank.balance.transaction}
@@ -25,7 +29,6 @@ realtime-balance/
 │   │   │   ├── service/
 │   │   ├── resources/
 ├── .gitignore
-├── API.md          API doc
 ├── Dockerfile   
 ├── LICENSE
 ├── README.md
@@ -95,9 +98,15 @@ Software architecture description
    if in window java -jar {projectDir}/target/realtime-balance/realtime-balance-1.0-SNAPSHOT.jar
 #### API Documentation
 See /doc/API.md
+See /doc/realtime-balance-apifox.json
 #### deploy script
+See /doc/deploy.sh
+    deployment.yaml
+    service.yaml
+    hpa.yaml
 See Dockerfile
 #### Core interface design
-See /doc/设计文档.md
+See /doc/designDoc.md
 #### Stress test
-See /pressTest/pressTest.pdf
+See /doc/stressTest.pdf
+See /doc/jmeter.jmx
