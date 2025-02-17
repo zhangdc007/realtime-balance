@@ -88,7 +88,7 @@ Software architecture description
    Virtual threads in JDK 21 will pin at sychronized code,performance is lees than webflux, see [https://blog.csdn.net/dyc87112/article/details/135686924).
 7. Provides the `my-service.sh` script with default JVM parameters for service startup.
 8. The Dockerfile is provided to build the image based on Azul JDK 21.
-9. Stress testing is done by JMeter 5.6.3. On  Macbook pro( M1 pro 16G), the query api throughput is 3447 QPS/s . transaction api is 195/s,max CPU is about 30%(8 core)  The JMeter script can be found in `jmeter.jmx`, and the graphical report is in the attached `stressTest.pdf`.
+9. Stress testing is done by JMeter 5.6.3. On  Macbook pro( M1 pro 16G), the query api throughput is about 3490 QPS/s . transaction api is 195/s,max CPU is about 30%(8 core)  The JMeter script can be found in `jmeter.jmx`, and the graphical report is in the attached `stressTest.pdf`.
 
 #### How to Run this Project
 1. in maven 3.8.8 & JDK21
