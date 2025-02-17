@@ -77,7 +77,7 @@ public class TransactionServiceImpl implements TransactionService {
                                 .map(txn -> GetTransactionResponse.from(txn))
                                 .flatMap(response -> {
                                     try {
-                                        return redisTemplate.opsForValue().set(key, objectMapper.writeValueAsString(response))
+                                        return redisTemplate.opsForValue().set(key, objectMapper.writeValueAsString(response),Constants.TTL)
                                                 .thenReturn(response);
                                     } catch (JsonProcessingException e) {
                                         return Mono.error(new BizException(e));
@@ -221,9 +221,7 @@ public class TransactionServiceImpl implements TransactionService {
                                             .then(Mono.error(new BizException(ErrorCode.ACCOUNT_TYPE_MISMATCH, "target and source account type mismatch")));
                                 }
                                 // 进入乐观锁更新阶段（重试机制，最多重试 3 次）
-                                return transactionalOperator.transactional(
-                                        attemptOptimisticUpdate(txn, sourceAccount, request.getAmount(), 0)
-                                );
+                                return attemptOptimisticUpdate(txn, sourceAccount, request.getAmount(), 0);
                             });
                 })
                 .doOnSuccess(response -> {
@@ -246,9 +244,12 @@ public class TransactionServiceImpl implements TransactionService {
         if (retryCount > Constants.SINGLE_MAX_TX_RETRY) {
             txn.setStatus(TransactionStatus.RETRY);
             txn.setUpdatedAt(LocalDateTime.now());
+            logger.warn("txn :"+txn.getBizId()+" retryCount:" + txn.getRetry() + " ,will retry later");
             return transactionRepository.save(txn)
                     .then(Mono.just(txn));
         }
+
+
         // 更新 source 账户：扣款（带乐观锁判断版本）
         Mono<Account> updateSource = accountRepository.findByAccountId(sourceAccount.getAccountId())
                 .flatMap(acc -> {
@@ -270,19 +271,22 @@ public class TransactionServiceImpl implements TransactionService {
                     acc.setUpdatedAt(LocalDateTime.now());
                     return accountRepository.save(acc);
                 });
-        // 执行更新并更新交易状态
-        return updateSource.then(updateTarget)
+        // 事务包装:执行更新并更新交易状态
+        return transactionalOperator.transactional(updateSource.then(updateTarget)
                 .flatMap(updated -> {
                     txn.setStatus(TransactionStatus.SUCCESS);
                     txn.setUpdatedAt(LocalDateTime.now());
+                    return transactionRepository.save(txn)
+                            .thenReturn(txn);
+                }))
+                //放在事务外
+                .doOnSuccess(transaction -> {
                     // 执行成功，账户余额变化，缓存失效
                     redisTemplate.delete(CacheKey.getAccountKey(txn.getSourceAccount().toString()),
                             CacheKey.getAccountKey(txn.getTransactionId().toString()));
-                    return transactionRepository.save(txn)
-                            .thenReturn(txn);
                 })
                 .onErrorResume(ex -> {
-                    logger.warn("update account by verson optimisticLock fail:",ex.getMessage());
+                    logger.warn("txn:" + txn.getBizId() +" update account by verson optimisticLock "+retryCount+" fail :",ex.getMessage());
                     // 若出现乐观锁更新失败或其它并发问题，则重试，保存重试次数，并递增延迟
                     txn.setRetry(txn.getRetry() + 1);
                     return Mono.delay(Duration.ofMillis(50L * (retryCount + 1)))
@@ -301,7 +305,7 @@ public class TransactionServiceImpl implements TransactionService {
                         txn.setError("retry times exceed 6,need manual process");
                         txn.setUpdatedAt(LocalDateTime.now());
                         //TODO send email/ sms  to admin
-                        logger.error("Transaction:"+ txn.getTransactionId() +" retry times exceed 6,need manual process");
+                        logger.error("txn:"+ txn.getBizId() +" retry times exceed 6,need manual process");
                         return transactionRepository.save(txn).then();
                     }
                     // 否则，重复调用 processTransaction 内部逻辑

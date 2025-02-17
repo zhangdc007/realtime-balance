@@ -13,8 +13,8 @@ import reactor.core.publisher.Mono;
  * @time 2025/2/17 15:18
  */
 @Component
-public class RequestLoggingFilter implements WebFilter {
-    Logger api = LoggerFactory.getLogger("APIFile");
+public class ApiLoggingFilter implements WebFilter {
+    private static final Logger apiLogger = LoggerFactory.getLogger("apiLogger");
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         long startTime = System.currentTimeMillis();
@@ -25,7 +25,7 @@ public class RequestLoggingFilter implements WebFilter {
                 .doOnTerminate(() -> {
                     long duration = System.currentTimeMillis() - startTime;
                     String status = exchange.getResponse().getStatusCode() != null && exchange.getResponse().getStatusCode().is2xxSuccessful() ? "T" : "F";
-                    api.info(method+" "+ path+" "+status+" use "+duration+"ms");
+                    apiLogger.info(method+" "+ path+" "+status+" use "+duration+"ms");
                 });
     }
 }

@@ -28,4 +28,6 @@ public class Constants {
     public static final String ACCOUUNT_CACHE = "account:";
 
     public static final Duration LOCK_EXPIRE = Duration.ofSeconds(10);
+
+    public static final Duration TTL = Duration.ofMinutes(30);
 }

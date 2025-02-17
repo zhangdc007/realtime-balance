@@ -12,7 +12,7 @@ CREATE TABLE `accounts` (
   `created_at` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT '创建时间',
   `updated_at` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6) COMMENT '修改时间',
   PRIMARY KEY (`account_id`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=10000000005 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+) ENGINE=InnoDB AUTO_INCREMENT=10000000001 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
 -- ----------------------------
 -- Table structure for transactions
@@ -31,5 +31,5 @@ CREATE TABLE `transactions` (
   `updated_at` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6) COMMENT '更新时间',
   `currency` char(3) COLLATE utf8mb4_bin NOT NULL DEFAULT 'CNY' COMMENT '货币',
   PRIMARY KEY (`transaction_id`),
-  UNIQUE KEY `biz_id` (`biz_id`,`source_account`,`target_account`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+  UNIQUE KEY `biz_id` (`biz_id`) USING BTREE
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;

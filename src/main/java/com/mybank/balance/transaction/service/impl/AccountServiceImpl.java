@@ -55,7 +55,7 @@ public class AccountServiceImpl implements AccountService {
                                 .map(account -> CreateAccountResponse.from(account))
                                 .flatMap(response -> {
                                     try {
-                                        return redisTemplate.opsForValue().set(key, objectMapper.writeValueAsString(response))
+                                        return redisTemplate.opsForValue().set(key, objectMapper.writeValueAsString(response),Constants.TTL)
                                                 .thenReturn(response);
                                     } catch (JsonProcessingException e) {
                                         return Mono.error(new BizException(e));
