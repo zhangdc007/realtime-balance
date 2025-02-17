@@ -1,6 +1,8 @@
 package com.mybank.balance.transaction.service.impl;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mybank.balance.transaction.cache.CacheKey;
+import com.mybank.balance.transaction.common.Constants;
 import com.mybank.balance.transaction.dao.AccountRepository;
 import com.mybank.balance.transaction.dto.CreateAccountResponse;
 import com.mybank.balance.transaction.exception.BizException;
@@ -27,7 +29,6 @@ public class AccountServiceImpl implements AccountService {
     @Autowired
     private ObjectMapper objectMapper;
 
-    public static final String ACCOUNT_CACHE = "account:";
     @Override
     public Mono<Account> createAccount(Account account) {
         return accountRepository.save(account);
@@ -35,7 +36,7 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     public Mono<CreateAccountResponse> getAccount(Long accountId) {
-        String key = ACCOUNT_CACHE + accountId;
+        String key = CacheKey.getAccountKey(accountId.toString());
         return redisTemplate.opsForValue().get(key)
                 .flatMap(json -> {
                     try {

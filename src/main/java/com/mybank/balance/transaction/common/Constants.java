@@ -1,5 +1,7 @@
 package com.mybank.balance.transaction.common;
 
+import java.time.Duration;
+
 /**
  * @author zhangdaochuan
  * @time 2025/2/16 21:50
@@ -18,4 +20,12 @@ public class Constants {
     public static final int MAX_TX_RETRY = 6;
     //单个循序最大重试次数
     public static final int SINGLE_MAX_TX_RETRY = 3;
+
+    public static final String LOCK_KEY = "lock:txn:";
+
+    public static final String TRANSACTION_CACHE = "txn:";
+
+    public static final String ACCOUUNT_CACHE = "account:";
+
+    public static final Duration LOCK_EXPIRE = Duration.ofSeconds(10);
 }

@@ -1,10 +1,14 @@
 package com.mybank.balance.transaction.service.impl;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mybank.balance.transaction.cache.CacheKey;
 import com.mybank.balance.transaction.common.Constants;
 import com.mybank.balance.transaction.cache.DistributedLockService;
 import com.mybank.balance.transaction.common.TransactionStatus;
 import com.mybank.balance.transaction.dao.AccountRepository;
 import com.mybank.balance.transaction.dao.TransactionRepository;
+import com.mybank.balance.transaction.dto.CreateAccountResponse;
 import com.mybank.balance.transaction.dto.ProcessTransactionRequest;
 import com.mybank.balance.transaction.dto.ProcessTransactionResponse;
 import com.mybank.balance.transaction.dto.GetTransactionResponse;
@@ -49,22 +53,40 @@ public class TransactionServiceImpl implements TransactionService {
     private ReactiveStringRedisTemplate redisTemplate;
 
     @Autowired
-    private AccountServiceImpl accountService;
+    private ObjectMapper objectMapper;
 
-    private static final Duration LOCK_EXPIRE = Duration.ofSeconds(10);
 
     @Override
     public Mono<GetTransactionResponse> getTransaction(String bizId) {
-        return transactionRepository.findByBizId(bizId)
-                .map(txn -> GetTransactionResponse.from(txn))
-                .switchIfEmpty(Mono.error(new BizException(ErrorCode.TRANSACTION_NOT_FOUND)));
+        String key = CacheKey.getTxnKey(bizId);
+        return redisTemplate.opsForValue().get(key)
+                .flatMap(json -> {
+                    try {
+                        return Mono.just(objectMapper.readValue(json, GetTransactionResponse.class));
+                    } catch (JsonProcessingException e) {
+                        return Mono.error(new BizException(e));
+                    }
+                }).switchIfEmpty(
+                        transactionRepository.findByBizId(bizId)
+                                .map(txn -> GetTransactionResponse.from(txn))
+                                .flatMap(response -> {
+                                    try {
+                                        return redisTemplate.opsForValue().set(key, objectMapper.writeValueAsString(response))
+                                                .thenReturn(response);
+                                    } catch (JsonProcessingException e) {
+                                        return Mono.error(new BizException(e));
+                                    }
+                                })
+                )
+                // 若都查不到，抛出异常;
+                .switchIfEmpty(Mono.error(new BizException(ErrorCode.TRANSACTION_NOT_FOUND,"bizId:"+bizId)));
     }
 
     @Override
     public Mono<ProcessTransactionResponse> processTransaction(ProcessTransactionRequest request) {
         // 使用 bizId 作为锁 key
-        String lockKey = "lock:txn:" + request.getBizId();
-        return lockService.acquireLock(lockKey, LOCK_EXPIRE)
+        String lockKey = Constants.LOCK_KEY + request.getBizId();
+        return lockService.acquireLock(lockKey, Constants.LOCK_EXPIRE)
                 .switchIfEmpty(Mono.error(new BizException(ErrorCode.LOCK_ACQUIRE_FAILED)))
                 .flatMap(lockValue ->
                         // 调用内部处理方法
@@ -200,7 +222,13 @@ public class TransactionServiceImpl implements TransactionService {
                 })
                 .doOnSuccess(response -> {
                     long endTime = System.currentTimeMillis();
-                    logger.info((response.isNeedProcess()?"process":"existing")+" Transaction:"+response.getBizId()+" stutas:"+response.getStatus() + " cost time:"+(endTime-startTime)+"ms");
+                    String type = "existing";
+                    // 有处理事务，可能会变化，缓存失效
+                    if(response.isNeedProcess()){
+                        redisTemplate.delete(CacheKey.getTxnKey(response.getBizId()));
+                        type = "process";
+                    }
+                    logger.info(type +" Transaction:"+response.getBizId()+" stutas:"+response.getStatus() + " cost time:"+(endTime-startTime)+"ms");
                 });
     }
     /**
@@ -242,7 +270,8 @@ public class TransactionServiceImpl implements TransactionService {
                     txn.setStatus(TransactionStatus.SUCCESS);
                     txn.setUpdatedAt(LocalDateTime.now());
                     // 执行成功，账户余额变化，缓存失效
-                    redisTemplate.delete(txn.getSourceAccount().toString(), txn.getTransactionId().toString());
+                    redisTemplate.delete(CacheKey.getAccountKey(txn.getSourceAccount().toString()),
+                            CacheKey.getAccountKey(txn.getTransactionId().toString()));
                     return transactionRepository.save(txn)
                             .thenReturn(txn);
                 })
@@ -277,8 +306,8 @@ public class TransactionServiceImpl implements TransactionService {
                     req.setCurrency(txn.getCurrency());
                     req.setAmount(txn.getAmount());
                     // 使用 bizId 作为锁 key
-                    String lockKey = "lock:txn:" + req.getBizId();
-                    return lockService.acquireLock(lockKey, LOCK_EXPIRE)
+                    String lockKey = Constants.LOCK_KEY + req.getBizId();
+                    return lockService.acquireLock(lockKey, Constants.LOCK_EXPIRE)
                             .switchIfEmpty(Mono.empty()) // 如果没有获取到锁，直接跳过处理
                             .flatMap(lockValue ->
                                     processInternal(req, true)
