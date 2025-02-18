@@ -41,19 +41,20 @@ public class TransactionRetryScheduler {
      * 间隔的定时任务，定时查询 transactions status=“RETRY” 或者 “PENGDING” ,"PROCESSING" 且 now - 10s > updated 的记录
      * 重新处理交易：
      * a:使用基于bizId获取分布式锁，如果没获取到，则跳过，处理下一条记录
-     * b：如果获取到锁，如果retry > 6 次，则置为FAIL ，error 写为重试超过最大次数，需要人工介入，注释：发送告警短信通知人工介入。
-     *    如果retry <6 ,重复 一：处理交易接口的 b,c步骤
+     * b：如果获取到锁，如果retry > 9 次，则置为FAIL ，error 写为重试超过最大次数，需要人工介入，注释：发送告警短信通知人工介入。
+     *    如果retry <9 ,重复 一：处理交易接口的 b,c步骤
      * c:释放分布式锁
      */
-    // 每 10s + 随机 0~5 秒执行一次（单位：毫秒）
-    @Scheduled(fixedDelayString = "#{10000 + T(java.util.concurrent.ThreadLocalRandom).current().nextInt(5000)}")
+    // 每 10s + 随机 0~3 秒执行一次（单位：毫秒）
+    @Scheduled(fixedDelayString = "#{10000 + T(java.util.concurrent.ThreadLocalRandom).current().nextInt(3000)}")
     public void retryTransactions() {
         // 尝试获取分布式锁
         lockService.acquireLock(lockKey, Duration.ofSeconds(10))
                 .switchIfEmpty(Mono.empty())
                 .flatMap(lockValue -> {
                     // 查询状态为 RETRY、PENDING、PROCESSING 且 updatedAt 早于 threshold 的记录
-                    return transactionRepository.findAllByStatusOrStatusInAndUpdatedAtBefore(
+                    // 一次性limit 1000条，预期一条处理在100ms 内
+                    return transactionRepository.findTop1000ByStatusOrStatusInAndUpdatedAtBefore(
                             TransactionStatus.RETRY.name(),
                             Arrays.asList(TransactionStatus.PENDING.name(), TransactionStatus.PROCESSING.name()),
                             LocalDateTime.now().minusSeconds(10)
