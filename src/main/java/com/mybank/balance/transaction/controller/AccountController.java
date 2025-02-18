@@ -30,7 +30,7 @@ public class AccountController {
 
     @GetMapping(value = "/{accountId}", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<Response<CreateAccountResponse>> getAccount(@PathVariable Long accountId) {
-        // 可添加 Redis 缓存逻辑，此处直接查询数据库
+        
         return accountService.getAccount(accountId)
                 .map(acc ->Response.success(acc));
     }
