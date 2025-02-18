@@ -1,47 +1,81 @@
 # 压测报告
-压测环境
+机器信息
 
-```yaml
-mac Pro m1 pro 16GB
-```
-使用JDK21 jar 包启动，本地启动jmeter 压测，jmeter任务配置：
+Mac os m1 8核
 
-[office](Pq-n8qR7yBXv-sASz4pxXepAru3p4JxF0OZFsxO9Lkw.jmx)
+内存16GB
 
-同时开jprofile分析线程和CPU，GC，内存情况是否正常
+JDK 21
 
-启动JVM参数
+jmeter 5.6.3
 
-```yaml
-/Users/zhangdaochuan/Library/Java/JavaVirtualMachines/azul-21.0.5/Contents/Home/bin/java --add-opens java.base/java.lang=ALL-UNNAMED -Denv=dev -Dprocess_num= -Xmx2688M -Xms2688M -XX:MaxMetaspaceSize=256M -XX:MetaspaceSize=256M -XX:+DisableExplicitGC -XX:MaxGCPauseMillis=100 -XX:+UseG1GC -XX:+ParallelRefProcEnabled -server -Duser.timezone=GMT+08 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/Users/zhangdaochuan/Documents/git_project/hsbc/transaction/target/transaction/logs/dump.hprof -XX:ErrorFile=/Users/zhangdaochuan/Documents/git_project/hsbc/transaction/target/transaction/logs/hs_err_pid%p%t.log -jar /Users/zhangdaochuan/Documents/git_project/hsbc/transaction/target/transaction/transaction-1.0-SNAPSHOT.jar --spring.profiles.active=dev
-```
-JVM堆内存2.75G
+MySQL和redis 在本机 Docker部署
 
-GC情况
+本地发压
 
-![image](images/f_KlTOWhwKbrYNaf28BBh1MblwrRK9-fTM4MprJt7sM.png)
+一：转账交易
 
-开启虚拟线程后，不论Tomcat还是undertow都没有线程池限制，这里还是需要进一步评估不限制虚拟线程的影响
+测试并发给相同的source target账户转账
 
-![image](images/rjlrOJi0mAlpuDnKX9stHXBJC9MS8RroTH5QiVkK-N0.png)
+![image](images/iH9_dav3yMY8f_-HtfA84ZBUKsFp8FKa8ZRVxhQYIB8.png)
 
-在压测中，真实线程一直很稳定，总线程在20个，没有线程泄漏问题
+交易流水号10000\~90000
 
-![image](images/Y9C7Uzf47hB6aALXHfeGwIQbhXedC29Z_m4DoFXYPVI.png)
-
-用jemete 禁止了删除和查询全部接口，性能可以到580/s，总请求可以到2290/s 
-
-高峰CPU消耗400%，占本机总CPU约57%
-
-可以看到线程那里
-
-![image](images/MTeCpaH-ta88csa6b-h2RDbI_kPrMC5Jle5Kxz7QlLQ.png)
-
-去除jprpfile在进行压测
-
-CPU400%情况下，每个请求可以达到870/s，总请求3447/s 耗时 avg 13\~25ms
-
-![image](images/4BeEkIfXbnq_2Qmk6tUtD4ef0wOpTuVrlNIRSufRQhQ.png)
+![image](images/zSFmY4XsBUWBx_b0cD7a_1r1SywWuvXav53q5JmjOaU.png)
 
 
+
+线程数稳定在25
+
+服务进程峰值CPU 30%（机器8核）
+
+处理交易接口为 195/s，从日志看，出现大量乐观锁失败，也有一次性成功的，耗时6ms
+
+很多请求失败后，进入递增sleep 重试，导致523ms,影响了吞吐
+
+GC 线程总数均正常
+
+![image](images/mGOq3QUI-6DcVFnPyAFJCSp7P4WQ9RCfZPHFP9waYrQ.png)
+
+查看数据库，压测期间竞争很激烈，重试次数有的到7，
+
+![image](images/CTeR5YDO6iPfyyKr-qbV-a6kdlvEpheA7_uByt9zR-0.png)
+
+![image](images/FeJVo-SmnMJq0qCc5gbCeT4FZJ89wLmiZrwu383HOJM.png)
+
+source和target account 余额相加符合预期
+
+![image](images/8Y3rlHR1UZsQZaT0ZFDbHkzDjD3nCMz-Zz1FQYNmGy8.png)
+
+统计本次压测的10000个请求，成功有8210
+
+![image](images/qHh_DqWsY3Ujpjq0zazKLVu2GM7lrUKdK0XoxNjkfQU.png)
+
+失败原因均为重试次数过多导致，可以通过提高重试次数缓解
+
+![image](images/AiaTY-MlV4zus6Od2AynGgDsqPtKaAfG_qIJADmdtSk.png)
+
+
+
+二：查询交易状态和账户信息
+
+![image](images/qLKnIVsUWfoACHi65Bf43kNtSwzMWKH2IZ2ZCRu0NAg.png)
+
+
+
+![image](images/7ublZwO2EqDDFLSOZTyNKTek-nA22WK6VbSSeVSUtwE.png)
+
+![image](images/bfIWv3GBv3fx280Fn7VNRWIDBjlRH1oLoYAScvSegRA.png)
+
+线程数稳定在25
+
+峰值CPU 32%，机器8核
+
+2个接口均为 1700/s 合计 3400/s 
+
+由于接口有redis缓存，所以基本是打到redis上，没有能压到上限
+
+GC 线程总数均正常
+
+![image](images/QMffron-iwL_5j20Bb5q2lF-BCpMmkEtEJNWFE0tQao.png)
 
